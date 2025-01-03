@@ -1,0 +1,38 @@
+# Node.js
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+
+# Dependency directories
+pids
+logs
+results
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+node_modules
+jspm_packages
+
+# Distribution directories
+dist
+out
+
+# Yarn
+.yarn
+
+# dotenv environment variables file
+.env
+
+# Database files
+*.db
