@@ -1,9 +1,11 @@
 import { Controller, Get, Ip, Req } from "@nestjs/common";
-import { Request } from "express";
+import { User } from "schemas/user.schema";
+import { AppService } from "./app.service";
 @Controller("app")
 export class AppController {
+  constructor(private appService: AppService) {}
   @Get()
-  info(): string {
-    return "Deer customer! \n Welcome to U-Mint-API!";
+  async findAll(): Promise<User[]> {
+    return this.appService.findAll();
   }
 }
