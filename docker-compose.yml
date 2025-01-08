@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: u-mint-api
+    environment:
+      - PORT=${PORT}
+      - MONGO_URI=${MONGO_URI}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: ['npm', 'run', 'start:dev']    
