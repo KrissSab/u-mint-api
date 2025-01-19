@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     container_name: u-mint-api
@@ -12,4 +10,4 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-    command: ['npm', 'run', 'start:dev']    
+    command: ['npm', 'run', 'start:prod']

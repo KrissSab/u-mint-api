@@ -1,9 +1,13 @@
 {
   "name": "u-mint-api",
+  "engines": {
+    "node": "20.18.1"
+  },
   "version": "1.0.0",
   "description": "",
   "main": "dist/src/main",
   "scripts": {
+    "format": "prettier --write .",
     "build": "nest build",
     "start:dev": "nest start --watch",
     "start:prod": "node ."
@@ -25,6 +29,7 @@
     "@nestjs/schematics": "^10.2.3",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
     "typescript": "^5.7.2"
   }
 }
