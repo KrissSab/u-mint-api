@@ -22,8 +22,11 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/mongoose": "^10.1.0",
     "@nestjs/platform-express": "^10.4.15",
+    "@openzeppelin/contracts": "^5.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "ethers": "^6.13.5",
+    "ipfs-http-client": "^60.0.1",
     "mongoose": "^8.9.3",
     "reflect-metadata": "^0.2.2"
   },
