@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { CreateNftDto } from './dto/create-nft.dto';
 import { UpdateNftDto } from './dto/update-nft.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class NftsService {
-  create(createNftDto: CreateNftDto) {
-    return 'This action adds a new nft';
-  }
+export class NftService {
+  constructor(private readonly configService: ConfigService) {}
+  create(createNftDto: CreateNftDto) {}
 
   findAll() {
     return `This action returns all nfts`;
