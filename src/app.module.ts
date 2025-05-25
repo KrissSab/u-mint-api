@@ -1,23 +1,27 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { UsersModule } from './users/users.module';
-import { NftsModule } from './nfts/nfts.module';
 import { WalletsModule } from './wallets/wallets.module';
+import { NftsModule } from './nfts/nfts.module';
 import { MailModule } from './mail/mail.module';
+import { BlockchainModule } from './blockchain/blockchain.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ envFilePath: '.env', isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     MongooseModule.forRoot(process.env.MONGO_URI),
     EventEmitterModule.forRoot(),
     UsersModule,
-    NftsModule,
     WalletsModule,
+    NftsModule,
     MailModule,
+    BlockchainModule,
   ],
-  providers: [],
   controllers: [],
+  providers: [],
 })
 export class AppModule {}

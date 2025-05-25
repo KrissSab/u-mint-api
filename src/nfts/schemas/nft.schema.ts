@@ -28,6 +28,21 @@ export class NFT {
 
   @Prop({ required: true })
   userId: string;
+
+  @Prop()
+  collectionId: string;
+
+  @Prop({ default: false })
+  isForSale: boolean;
+
+  @Prop()
+  currentSaleId: string;
+
+  @Prop({ default: 0 })
+  price: number;
+
+  @Prop()
+  currency: string;
 }
 
 export const NFTSchema = SchemaFactory.createForClass(NFT);
