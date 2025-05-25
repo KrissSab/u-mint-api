@@ -15,9 +15,12 @@ export class CreateUserDto {
   username: string;
 
   @IsEmail()
-  email: string;
+  @ValidateIf(o => !o.wallet)
+  @IsOptional()
+  email?: string;
 
   @IsStrongPassword()
+  @ValidateIf(o => !o.wallet)
   password: string;
 
   @IsOptional()
