@@ -51,10 +51,12 @@ export class UsersService {
     const { password, ...userResponse } = savedUser;
 
     // Emit event for welcome email (non-blocking)
-    this.eventEmitter.emit(
-      'user.created',
-      new UserCreatedEvent(createUserDto.email, createUserDto.username),
-    );
+    if (createUserDto.email) {
+      this.eventEmitter.emit(
+        'user.created',
+        new UserCreatedEvent(createUserDto.email, createUserDto.username),
+      );
+    }
 
     return userResponse;
   }
