@@ -1,16 +1,13 @@
 import {
   IsEmail,
-  IsObject,
   IsOptional,
   IsString,
   IsStrongPassword,
-  ValidateIf,
-  ValidateNested,
+  Length,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { WalletDto } from '../../wallets/dto/wallet.dto';
 
-export class CreateUserDto {
+export class RegisterUserDto {
   @IsString()
   username: string;
 
@@ -21,7 +18,19 @@ export class CreateUserDto {
   password: string;
 
   @IsOptional()
-  @ValidateNested()
-  @Type(() => WalletDto)
   wallet?: WalletDto;
+}
+
+export class VerifyEmailDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @Length(4, 4)
+  code: string;
+}
+
+export class ResendVerificationDto {
+  @IsEmail()
+  email: string;
 }
