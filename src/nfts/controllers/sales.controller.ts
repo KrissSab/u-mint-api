@@ -10,13 +10,13 @@ import {
   HttpStatus,
   Query,
 } from '@nestjs/common';
-import { SalesService } from './sales.service';
+import { SalesService } from '../services/sales.service';
 import {
   CreateSaleDto,
   UpdateSaleDto,
   PlaceBidDto,
   BuySaleDto,
-} from './dto/sale.dto';
+} from '../dto/sale.dto';
 
 @Controller('sales')
 export class SalesController {

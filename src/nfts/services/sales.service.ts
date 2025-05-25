@@ -11,15 +11,15 @@ import {
   SaleDocument,
   SaleStatus,
   SaleType,
-} from './schemas/sale.schema';
-import { NFT, NFTDocument } from './schemas/nft.schema';
-import { Collection, CollectionDocument } from './schemas/collection.schema';
+} from '../schemas/sale.schema';
+import { NFT, NFTDocument } from '../schemas/nft.schema';
+import { Collection, CollectionDocument } from '../schemas/collection.schema';
 import {
   CreateSaleDto,
   UpdateSaleDto,
   PlaceBidDto,
   BuySaleDto,
-} from './dto/sale.dto';
+} from '../dto/sale.dto';
 
 @Injectable()
 export class SalesService {
@@ -219,7 +219,7 @@ export class SalesService {
     }
 
     if (sale.status !== SaleStatus.ACTIVE) {
-      throw new BadRequestException('This auction is no longer active');
+      throw new BadRequestException('This sale is no longer active');
     }
 
     if (sale.sellerId === buyerId) {
@@ -228,34 +228,39 @@ export class SalesService {
 
     if (sale.type !== SaleType.AUCTION) {
       throw new BadRequestException(
-        'This is a fixed price sale, not an auction',
+        'This is a fixed price sale. Please use buy instead',
       );
     }
 
     // Check if auction has ended
     if (sale.endTime && new Date(sale.endTime) < new Date()) {
-      throw new BadRequestException('This auction has ended');
+      throw new BadRequestException('This auction has already ended');
     }
 
-    // Check if bid is higher than current price
-    if (amount <= sale.price) {
-      throw new BadRequestException('Bid must be higher than current price');
+    // Get highest bid
+    const highestBid = sale.bids.length
+      ? Math.max(...sale.bids.map(bid => bid.amount))
+      : 0;
+
+    // Check if bid is higher than current highest bid or starting price
+    if (amount <= highestBid || amount < sale.price) {
+      throw new BadRequestException(
+        `Bid must be higher than current highest bid (${
+          highestBid > 0 ? highestBid : sale.price
+        })`,
+      );
     }
 
     // Add bid
-    const bid = {
+    sale.bids.push({
       bidderId: buyerId,
       amount,
       timestamp: new Date(),
-    };
+    });
 
-    sale.bids.push(bid);
-    sale.price = amount; // Update current price to highest bid
+    await sale.save();
 
-    // Update NFT price
-    await this.nftModel.findByIdAndUpdate(sale.nftId, { price: amount });
-
-    return sale.save();
+    return { message: 'Bid placed successfully', sale };
   }
 
   async endAuction(id: string, userId: string, transactionHash?: string) {
@@ -270,16 +275,17 @@ export class SalesService {
     }
 
     if (sale.status !== SaleStatus.ACTIVE) {
-      throw new BadRequestException('This auction is no longer active');
+      throw new BadRequestException('This sale is no longer active');
     }
 
     if (sale.type !== SaleType.AUCTION) {
       throw new BadRequestException('This is not an auction');
     }
 
-    // Check if there are bids
-    if (!sale.bids || sale.bids.length === 0) {
-      sale.status = SaleStatus.EXPIRED;
+    // Check if auction has bids
+    if (!sale.bids.length) {
+      // No bids, cancel auction
+      sale.status = SaleStatus.CANCELLED;
       await sale.save();
 
       // Update NFT
@@ -290,19 +296,22 @@ export class SalesService {
         await nft.save();
       }
 
-      return { message: 'Auction ended with no bids', sale };
+      return { message: 'Auction cancelled - no bids received' };
     }
 
     // Get highest bid
-    const highestBid = sale.bids.reduce((prev, current) =>
-      prev.amount > current.amount ? prev : current,
+    const highestBid = sale.bids.reduce(
+      (max, bid) => (bid.amount > max.amount ? bid : max),
+      sale.bids[0],
     );
 
     // Update sale
     sale.status = SaleStatus.SOLD;
     sale.buyerId = highestBid.bidderId;
-    sale.transactionHash = transactionHash;
     sale.soldAt = new Date();
+    // Save the final price in the update
+    const finalPrice = highestBid.amount;
+    sale.transactionHash = transactionHash;
     await sale.save();
 
     // Update NFT ownership
@@ -317,14 +326,11 @@ export class SalesService {
     // Update collection stats
     await this.updateCollectionStats(sale.collectionId);
 
-    return { message: 'Auction ended successfully', sale };
+    return { message: 'Auction ended successfully', sale, finalPrice };
   }
 
   async getSalesByCollection(collectionId: string) {
-    return this.saleModel.find({
-      collectionId,
-      status: SaleStatus.ACTIVE,
-    });
+    return this.saleModel.find({ collectionId });
   }
 
   async getSalesBySeller(sellerId: string) {
@@ -339,35 +345,38 @@ export class SalesService {
     const collection = await this.collectionModel.findById(collectionId);
     if (!collection) return;
 
-    // Calculate total volume
-    const completedSales = await this.saleModel.find({
+    // Count active sales
+    const activeSalesCount = await this.saleModel.countDocuments({
+      collectionId,
+      status: SaleStatus.ACTIVE,
+    });
+
+    // Get total volume
+    const sales = await this.saleModel.find({
       collectionId,
       status: SaleStatus.SOLD,
     });
 
-    const totalVolume = completedSales.reduce(
-      (sum, sale) => sum + sale.price,
-      0,
-    );
+    const totalVolume = sales.reduce((sum, sale) => {
+      // Get price from either finalPrice (auction) or regular price
+      const salePrice = (sale as any).finalPrice || sale.price;
+      return sum + salePrice;
+    }, 0);
 
-    // Update collection
-    collection.totalVolume = totalVolume;
-
-    // Update floor price
-    const activeSales = await this.saleModel
-      .find({
+    // Find floor price (lowest active sale)
+    const lowestActiveSale = await this.saleModel
+      .findOne({
         collectionId,
         status: SaleStatus.ACTIVE,
       })
-      .sort({ price: 1 })
-      .limit(1);
+      .sort({ price: 1 });
 
-    if (activeSales.length > 0) {
-      collection.floorPrice = activeSales[0].price;
-    } else {
-      collection.floorPrice = 0;
-    }
+    const floorPrice = lowestActiveSale ? lowestActiveSale.price : 0;
 
+    // Update collection
+    collection.isOnSale = activeSalesCount > 0;
+    collection.floorPrice = floorPrice;
+    collection.totalVolume = totalVolume;
     await collection.save();
   }
 }

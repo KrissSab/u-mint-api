@@ -8,9 +8,9 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
-import { NftsService } from './nfts.service';
-import { NFTDto } from './dto/nft.dto';
-import { CreateNftDto } from './dto/create-nft.dto';
+import { NftsService } from '../services/nfts.service';
+import { NFTDto } from '../dto/nft.dto';
+import { CreateNftDto } from '../dto/create-nft.dto';
 
 @Controller('nfts')
 export class NftsController {

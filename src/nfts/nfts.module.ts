@@ -1,18 +1,26 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { NftsService } from './nfts.service';
-import { NftsController } from './nfts.controller';
+
+// Schema imports
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { NFT, NFTSchema } from './schemas/nft.schema';
 import { Collection, CollectionSchema } from './schemas/collection.schema';
 import { Sale, SaleSchema } from './schemas/sale.schema';
-import { CollectionsController } from './collections.controller';
-import { CollectionsService } from './collections.service';
-import { SalesController } from './sales.controller';
-import { SalesService } from './sales.service';
-import { BlockchainModule } from '../blockchain/blockchain.module';
+
+// Service imports
+import { NftsService } from './services/nfts.service';
+import { CollectionsService } from './services/collections.service';
+import { SalesService } from './services/sales.service';
 import { BlockchainIntegrationService } from './services/blockchain-integration.service';
+
+// Controller imports
+import { NftsController } from './controllers/nfts.controller';
+import { CollectionsController } from './controllers/collections.controller';
+import { SalesController } from './controllers/sales.controller';
 import { BlockchainIntegrationController } from './controllers/blockchain-integration.controller';
+
+// Module imports
+import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
   imports: [

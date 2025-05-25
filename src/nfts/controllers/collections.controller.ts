@@ -10,8 +10,11 @@ import {
   HttpStatus,
   Query,
 } from '@nestjs/common';
-import { CollectionsService } from './collections.service';
-import { CreateCollectionDto, UpdateCollectionDto } from './dto/collection.dto';
+import { CollectionsService } from '../services/collections.service';
+import {
+  CreateCollectionDto,
+  UpdateCollectionDto,
+} from '../dto/collection.dto';
 
 @Controller('collections')
 export class CollectionsController {

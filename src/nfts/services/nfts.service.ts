@@ -6,12 +6,12 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { User, UserDocument } from '../users/schemas/user.schema';
-import { NFT, NFTDocument } from './schemas/nft.schema';
-import { NFTDto } from './dto/nft.dto';
-import { NFTAddedEvent } from '../mail/mail.events';
-import { CreateNftDto } from './dto/create-nft.dto';
-import { Collection, CollectionDocument } from './schemas/collection.schema';
+import { User, UserDocument } from '../../users/schemas/user.schema';
+import { NFT, NFTDocument } from '../schemas/nft.schema';
+import { NFTDto } from '../dto/nft.dto';
+import { NFTAddedEvent } from '../../mail/mail.events';
+import { CreateNftDto } from '../dto/create-nft.dto';
+import { Collection, CollectionDocument } from '../schemas/collection.schema';
 
 @Injectable()
 export class NftsService {
@@ -198,13 +198,11 @@ export class NftsService {
     collectionId: string,
     createNftDto: CreateNftDto,
   ) {
-    // Check if user exists
     const user = await this.userModel.findById(userId);
     if (!user) {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
-    // Check if collection exists and belongs to user
     const collection = await this.collectionModel.findById(collectionId);
     if (!collection) {
       throw new NotFoundException(
@@ -212,13 +210,13 @@ export class NftsService {
       );
     }
 
-    if (collection.creatorId !== userId) {
-      throw new NotFoundException(
-        'You do not have permission to add NFTs to this collection',
+    // Check if user is the collection creator
+    if (collection.creatorId.toString() !== userId) {
+      throw new BadRequestException(
+        `User ${userId} is not the creator of this collection`,
       );
     }
 
-    // Create NFT
     const newNft = new this.nftModel({
       ...createNftDto,
       userId,
@@ -234,14 +232,12 @@ export class NftsService {
   }
 
   private async updateCollectionStats(collectionId: string) {
-    const collection = await this.collectionModel.findById(collectionId);
-    if (!collection) return;
+    const nfts = await this.nftModel.find({ collectionId });
+    const totalNfts = nfts.length;
 
-    // Count total items
-    const totalItems = await this.nftModel.countDocuments({ collectionId });
-
-    // Update collection
-    collection.totalItems = totalItems;
-    await collection.save();
+    await this.collectionModel.findByIdAndUpdate(collectionId, {
+      totalItems: totalNfts,
+      updatedAt: new Date(),
+    });
   }
 }

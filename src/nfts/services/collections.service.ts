@@ -5,9 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Collection, CollectionDocument } from './schemas/collection.schema';
-import { NFT, NFTDocument } from './schemas/nft.schema';
-import { CreateCollectionDto, UpdateCollectionDto } from './dto/collection.dto';
+import { Collection, CollectionDocument } from '../schemas/collection.schema';
+import { NFT, NFTDocument } from '../schemas/nft.schema';
+import {
+  CreateCollectionDto,
+  UpdateCollectionDto,
+} from '../dto/collection.dto';
 
 @Injectable()
 export class CollectionsService {
