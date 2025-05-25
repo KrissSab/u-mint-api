@@ -37,7 +37,7 @@ export class UsersService {
     try {
       newUser = new this.userModel({
         username: createUserDto.username,
-        email: createUserDto.email,
+        email: createUserDto.email || null,
         password: hashedPassword,
         isActive: true,
         lastLogin: new Date(),
