@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
 
 export type NFTDocument = HydratedDocument<NFT>;
 
@@ -20,7 +20,7 @@ export class NFT {
   @Prop()
   imageUrl: string;
 
-  @Prop()
+  @Prop({ type: MongooseSchema.Types.Mixed })
   metadata: Record<string, any>;
 
   @Prop()
