@@ -9,7 +9,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { User, UserDocument } from '../../users/schemas/user.schema';
 import { NFT, NFTDocument } from '../schemas/nft.schema';
 import { NFTDto } from '../dto/nft.dto';
-import { NFTAddedEvent } from '../../mail/mail.events';
+import {
+  NFTAddedEvent,
+  NFTTransferredInEvent,
+  NFTTransferredOutEvent,
+} from '../../mail/mail.events';
 import { CreateNftDto } from '../dto/create-nft.dto';
 import { Collection, CollectionDocument } from '../schemas/collection.schema';
 
@@ -229,6 +233,66 @@ export class NftsService {
     await this.updateCollectionStats(collectionId);
 
     return savedNft;
+  }
+
+  async changeNftOwner(nftId: string, newOwnerId: string) {
+    // Check if NFT exists
+    const nft = await this.nftModel.findById(nftId);
+    if (!nft) {
+      throw new NotFoundException(`NFT with ID ${nftId} not found`);
+    }
+
+    // Check if new owner exists
+    const newOwner = await this.userModel.findById(newOwnerId);
+    if (!newOwner) {
+      throw new NotFoundException(`User with ID ${newOwnerId} not found`);
+    }
+
+    // Get the current owner
+    const currentOwnerId = nft.userId;
+    const currentOwner = await this.userModel.findById(currentOwnerId);
+
+    // Update NFT ownership
+    nft.userId = newOwnerId;
+
+    // If the NFT is for sale, update its status
+    if (nft.isForSale) {
+      nft.isForSale = false;
+      nft.currentSaleId = null;
+      nft.price = 0;
+    }
+
+    const updatedNft = await nft.save();
+
+    // Notify previous and new owners via event emitter (if they have email)
+    if (currentOwner?.email) {
+      this.eventEmitter.emit(
+        'nft.transferred.out',
+        new NFTTransferredOutEvent(
+          currentOwner.email,
+          nft.name,
+          nft._id.toString(),
+          newOwner.username,
+        ),
+      );
+    }
+
+    if (newOwner.email) {
+      this.eventEmitter.emit(
+        'nft.transferred.in',
+        new NFTTransferredInEvent(
+          newOwner.email,
+          nft.name,
+          nft._id.toString(),
+          currentOwner?.username || 'unknown',
+        ),
+      );
+    }
+
+    // If NFT is part of a collection, no need to update collection stats
+    // as the total count remains the same
+
+    return updatedNft;
   }
 
   private async updateCollectionStats(collectionId: string) {

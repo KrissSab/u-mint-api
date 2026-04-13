@@ -23,6 +23,24 @@ export class NFTAddedEvent {
   ) {}
 }
 
+export class NFTTransferredOutEvent {
+  constructor(
+    public readonly email: string,
+    public readonly nftName: string,
+    public readonly nftId: string,
+    public readonly to: string,
+  ) {}
+}
+
+export class NFTTransferredInEvent {
+  constructor(
+    public readonly email: string,
+    public readonly nftName: string,
+    public readonly nftId: string,
+    public readonly from: string,
+  ) {}
+}
+
 export class PasswordResetRequestedEvent {
   constructor(
     public readonly email: string,

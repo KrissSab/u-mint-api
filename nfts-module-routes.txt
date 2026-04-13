@@ -1,0 +1,42 @@
+# NFTs Module Routes
+
+## NFTs Controller Routes
+- GET    /nfts                                   - Get all NFTs
+- POST   /nfts/user/:userId                      - Add NFT to user
+- GET    /nfts/user/:userId                      - Get user's NFTs
+- GET    /nfts/:id                               - Get NFT by ID
+- DELETE /nfts/user/:userId/:tokenId/:contractAddress - Remove NFT from user
+- POST   /nfts/collection/:collectionId/user/:userId  - Create NFT in collection
+
+## Collections Controller Routes
+- POST   /collections/:userId                    - Create collection
+- GET    /collections                            - Get all collections
+- GET    /collections/creator/:creatorId         - Get collections by creator
+- GET    /collections/:id                        - Get collection by ID
+- GET    /collections/:id/nfts                   - Get NFTs in collection
+- PATCH  /collections/:id/:userId                - Update collection
+- DELETE /collections/:id/:userId                - Remove collection
+- POST   /collections/:collectionId/nft/:nftId   - Add NFT to collection
+- DELETE /collections/:collectionId/nft/:nftId   - Remove NFT from collection
+- POST   /collections/:id/update-stats           - Update collection stats
+
+## Sales Controller Routes
+- POST   /sales/:userId                          - Create sale
+- GET    /sales                                  - Get all sales
+- GET    /sales/collection/:collectionId         - Get sales by collection
+- GET    /sales/seller/:sellerId                 - Get sales by seller
+- GET    /sales/buyer/:buyerId                   - Get sales by buyer
+- GET    /sales/:id                              - Get sale by ID
+- PATCH  /sales/:id/:userId                      - Update sale
+- DELETE /sales/:id/:userId                      - Cancel sale
+- POST   /sales/:id/buy/:buyerId                 - Buy NFT
+- POST   /sales/bid/:buyerId                     - Place bid
+- POST   /sales/:id/end-auction/:userId          - End auction
+
+## Blockchain Integration Controller Routes
+- POST   /nfts/blockchain/mint/:nftId            - Mint NFT on blockchain
+- POST   /collections/blockchain/create/:collectionId - Create collection on blockchain
+- POST   /sales/blockchain/list/:saleId          - List NFT for sale on blockchain
+- POST   /sales/blockchain/buy/:saleId/:buyerId  - Buy NFT on blockchain
+- POST   /sales/blockchain/cancel/:saleId        - Cancel sale on blockchain
+- POST   /nfts/blockchain/sync/:nftId            - Sync NFT with blockchain 

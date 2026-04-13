@@ -7,10 +7,12 @@ import {
   HttpStatus,
   Param,
   Post,
+  Patch,
 } from '@nestjs/common';
 import { NftsService } from '../services/nfts.service';
 import { NFTDto } from '../dto/nft.dto';
 import { CreateNftDto } from '../dto/create-nft.dto';
+import { ChangeNftOwnerDto } from '../dto/change-owner.dto';
 
 @Controller('nfts')
 export class NftsController {
@@ -59,5 +61,22 @@ export class NftsController {
       collectionId,
       createNftDto,
     );
+  }
+
+  /**
+   * Change the owner of an NFT
+   *
+   * Transfers ownership of an NFT from one user to another.
+   * @param id The ID of the NFT to transfer
+   * @param changeOwnerDto Data transfer object containing the new owner's ID
+   * @returns The updated NFT with new ownership
+   */
+  @Patch(':id/owner')
+  @HttpCode(HttpStatus.OK)
+  changeNftOwner(
+    @Param('id') id: string,
+    @Body() changeOwnerDto: ChangeNftOwnerDto,
+  ) {
+    return this.nftsService.changeNftOwner(id, changeOwnerDto.newOwnerId);
   }
 }
