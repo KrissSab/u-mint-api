@@ -159,6 +159,27 @@ export class NftsService {
     return this.nftModel.find();
   }
 
+  async getTokenMetadata(tokenId: string) {
+    const nft = await this.nftModel.findOne({ tokenId }).lean();
+    if (!nft) {
+      throw new NotFoundException(`Token ${tokenId} not found`);
+    }
+
+    const attributes = nft.metadata
+      ? Object.entries(nft.metadata).map(([trait_type, value]) => ({
+          trait_type,
+          value,
+        }))
+      : [];
+
+    return {
+      name: nft.name,
+      description: nft.description ?? '',
+      image: nft.imageUrl,
+      attributes,
+    };
+  }
+
   async removeNftFromUser(
     userId: string,
     tokenId: string,

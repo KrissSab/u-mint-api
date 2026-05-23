@@ -349,6 +349,11 @@ export class UsersService {
     return this.userModel.findOne({ email });
   }
 
+  async checkEmailExists(email: string): Promise<{ exists: boolean }> {
+    const user = await this.userModel.findOne({ email }).select('_id').lean();
+    return { exists: !!user };
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto) {
     // Validate the ID
     if (!id) {

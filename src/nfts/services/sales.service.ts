@@ -32,8 +32,14 @@ export class SalesService {
   ) {}
 
   async createSale(userId: string, createSaleDto: CreateSaleDto) {
-    const { nftId, collectionId, type, price, currency, endTime } =
-      createSaleDto;
+    const {
+      nftId,
+      collectionId,
+      type = SaleType.FIXED_PRICE,
+      price,
+      currency,
+      endTime,
+    } = createSaleDto;
 
     // Check if NFT exists and belongs to user
     const nft = await this.nftModel.findById(nftId);
@@ -49,18 +55,21 @@ export class SalesService {
       throw new BadRequestException('This NFT is already for sale');
     }
 
-    // Check if collection exists
-    const collection = await this.collectionModel.findById(collectionId);
-    if (!collection) {
-      throw new NotFoundException(
-        `Collection with ID ${collectionId} not found`,
-      );
+    // Check if collection exists (only if collectionId provided)
+    let collection = null;
+    if (collectionId) {
+      collection = await this.collectionModel.findById(collectionId);
+      if (!collection) {
+        throw new NotFoundException(
+          `Collection with ID ${collectionId} not found`,
+        );
+      }
     }
 
     // Create sale
     const newSale = new this.saleModel({
       nftId,
-      collectionId,
+      ...(collectionId && { collectionId }),
       sellerId: userId,
       type,
       price,
@@ -82,8 +91,8 @@ export class SalesService {
     nft.currency = savedSale.currency;
     await nft.save();
 
-    // Update collection
-    if (!collection.isOnSale) {
+    // Update collection if present
+    if (collection && !collection.isOnSale) {
       collection.isOnSale = true;
       await collection.save();
     }

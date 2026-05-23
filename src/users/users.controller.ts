@@ -224,6 +224,12 @@ export class UsersController {
     }
   }
 
+  @Get('check-email/:email')
+  @HttpCode(HttpStatus.OK)
+  checkEmailExists(@Param('email') email: string) {
+    return this.usersService.checkEmailExists(email);
+  }
+
   @Get()
   findAll() {
     return this.usersService.findAll();

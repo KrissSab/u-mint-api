@@ -14,10 +14,12 @@ export class CreateSaleDto {
   nftId: string;
 
   @IsString()
-  collectionId: string;
+  @IsOptional()
+  collectionId?: string;
 
   @IsEnum(SaleType)
-  type: SaleType;
+  @IsOptional()
+  type?: SaleType;
 
   @IsNumber()
   @Min(0)

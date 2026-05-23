@@ -20,7 +20,7 @@ export class Sale {
   @Prop({ required: true })
   nftId: string;
 
-  @Prop({ required: true })
+  @Prop()
   collectionId: string;
 
   @Prop({ required: true })

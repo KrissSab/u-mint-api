@@ -34,6 +34,11 @@ export class NftsController {
     return this.nftsService.getUserNfts(userId);
   }
 
+  @Get('token/:tokenId')
+  getTokenMetadata(@Param('tokenId') tokenId: string) {
+    return this.nftsService.getTokenMetadata(tokenId);
+  }
+
   @Get(':id')
   getNftById(@Param('id') id: string) {
     return this.nftsService.getNftById(id);
