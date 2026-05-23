@@ -16,6 +16,10 @@ services:
       - .:/app
       - /app/node_modules
     command: ['npm', 'run', 'start:prod']
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
     depends_on:
       - mongo
 
