@@ -1,0 +1,87 @@
+### U-Mint Blockchain Integration API Test Requests
+@baseUrl = http://localhost:8080
+@userId = 68333d5c220a921886614f31
+@nftId = 6833efgh220a921886614f33
+@collectionId = 6833abcd220a921886614f32
+@saleId = 6833ijkl220a921886614f34
+@walletAddress = 0x1234567890123456789012345678901234567890
+
+### ==================== BLOCKCHAIN INFO ====================
+
+### Get contract addresses
+GET {{baseUrl}}/blockchain/addresses
+
+### ==================== NFT MINTING ====================
+
+### Mint a new NFT on the blockchain
+POST {{baseUrl}}/blockchain/mint
+Content-Type: application/json
+
+{
+  "address": "{{walletAddress}}"
+}
+
+### Get token information
+GET {{baseUrl}}/blockchain/token/1
+
+### Set base URI for NFT collection
+POST {{baseUrl}}/blockchain/set-base-uri
+Content-Type: application/json
+
+{
+  "baseUri": "https://api.u-mint.com/api/collections/{{collectionId}}/metadata/"
+}
+
+### ==================== MARKETPLACE OPERATIONS ====================
+
+### List NFT for sale on the blockchain
+POST {{baseUrl}}/blockchain/list
+Content-Type: application/json
+
+{
+  "nftAddress": "0x0987654321098765432109876543210987654321",
+  "tokenId": "1",
+  "price": "0.1"
+}
+
+### Buy NFT from the marketplace
+POST {{baseUrl}}/blockchain/buy
+Content-Type: application/json
+
+{
+  "nftAddress": "0x0987654321098765432109876543210987654321",
+  "tokenId": "1",
+  "price": "0.1"
+}
+
+### Cancel NFT listing
+POST {{baseUrl}}/blockchain/cancel
+Content-Type: application/json
+
+{
+  "nftAddress": "0x0987654321098765432109876543210987654321",
+  "tokenId": "1"
+}
+
+### Get NFT listing information
+GET {{baseUrl}}/blockchain/listing?nftAddress=0x0987654321098765432109876543210987654321&tokenId=1
+
+### ==================== BLOCKCHAIN INTEGRATION ====================
+
+### Mint NFT on blockchain and update database
+POST {{baseUrl}}/nfts/blockchain/mint/{{nftId}}
+
+### Create collection on blockchain
+POST {{baseUrl}}/collections/blockchain/create/{{collectionId}}
+
+### List NFT for sale on blockchain
+POST {{baseUrl}}/sales/blockchain/list/{{saleId}}
+
+### Buy NFT on blockchain
+POST {{baseUrl}}/sales/blockchain/buy/{{saleId}}/{{userId}}
+
+### Cancel NFT sale on blockchain
+POST {{baseUrl}}/sales/blockchain/cancel/{{saleId}}
+
+### Sync NFT with blockchain data
+POST {{baseUrl}}/nfts/blockchain/sync/{{nftId}} 

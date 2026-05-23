@@ -7,6 +7,8 @@ import { WalletsModule } from './wallets/wallets.module';
 import { NftsModule } from './nfts/nfts.module';
 import { MailModule } from './mail/mail.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
+import { TransactionsModule } from './transactions/transactions.module';
+import { ConsensusModule } from './consensus/consensus.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { BlockchainModule } from './blockchain/blockchain.module';
     NftsModule,
     MailModule,
     BlockchainModule,
+    TransactionsModule,
+    ConsensusModule,
   ],
   controllers: [],
   providers: [],

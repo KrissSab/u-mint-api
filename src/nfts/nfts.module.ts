@@ -21,6 +21,8 @@ import { BlockchainIntegrationController } from './controllers/blockchain-integr
 
 // Module imports
 import { BlockchainModule } from '../blockchain/blockchain.module';
+import { ConsensusModule } from '../consensus/consensus.module';
+import { TransactionsModule } from '../transactions/transactions.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { BlockchainModule } from '../blockchain/blockchain.module';
       { name: Sale.name, schema: SaleSchema },
     ]),
     BlockchainModule,
+    ConsensusModule,
+    TransactionsModule,
   ],
   controllers: [
     NftsController,

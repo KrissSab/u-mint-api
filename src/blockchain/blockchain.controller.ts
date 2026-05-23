@@ -5,24 +5,17 @@ class MintNftDto {
   address: string;
 }
 
-class SetBaseUriDto {
-  baseUri: string;
-}
-
 class ListItemDto {
-  nftAddress: string;
   tokenId: string;
   price: string;
 }
 
 class BuyItemDto {
-  nftAddress: string;
   tokenId: string;
   price: string;
 }
 
 class CancelListingDto {
-  nftAddress: string;
   tokenId: string;
 }
 
@@ -33,8 +26,7 @@ export class BlockchainController {
   @Get('addresses')
   getContractAddresses() {
     return {
-      nftContract: this.blockchainService.getNFTAddress(),
-      marketplaceContract: this.blockchainService.getMarketplaceAddress(),
+      platformContract: this.blockchainService.getPlatformAddress(),
     };
   }
 
@@ -43,61 +35,37 @@ export class BlockchainController {
     return this.blockchainService.mintNFT(mintNftDto.address);
   }
 
-  @Post('set-base-uri')
-  async setBaseURI(@Body() setBaseUriDto: SetBaseUriDto) {
-    return {
-      txHash: await this.blockchainService.setBaseURI(setBaseUriDto.baseUri),
-    };
-  }
-
   @Get('token/:tokenId')
   async getTokenInfo(@Param('tokenId') tokenId: string) {
-    const [uri, owner] = await Promise.all([
-      this.blockchainService.getTokenURI(tokenId),
+    const [owner, listing] = await Promise.all([
       this.blockchainService.getOwnerOf(tokenId),
+      this.blockchainService.getListing(tokenId),
     ]);
+    return { tokenId, owner, listing };
+  }
 
-    return {
-      tokenId,
-      uri,
-      owner,
-    };
+  @Get('nonce/:address')
+  async getNonce(@Param('address') address: string) {
+    return { nonce: await this.blockchainService.getNonce(address) };
   }
 
   @Post('list')
-  async listItem(@Body() listItemDto: ListItemDto) {
-    const txHash = await this.blockchainService.listItem(
-      listItemDto.nftAddress,
-      listItemDto.tokenId,
-      listItemDto.price,
-    );
-    return { txHash };
+  async listItem(@Body() dto: ListItemDto) {
+    return { txHash: await this.blockchainService.listItem(dto.tokenId, dto.price) };
   }
 
   @Post('buy')
-  async buyItem(@Body() buyItemDto: BuyItemDto) {
-    const txHash = await this.blockchainService.buyItem(
-      buyItemDto.nftAddress,
-      buyItemDto.tokenId,
-      buyItemDto.price,
-    );
-    return { txHash };
+  async buyItem(@Body() dto: BuyItemDto) {
+    return { txHash: await this.blockchainService.buyItem(dto.tokenId, dto.price) };
   }
 
   @Post('cancel')
-  async cancelListing(@Body() cancelListingDto: CancelListingDto) {
-    const txHash = await this.blockchainService.cancelListing(
-      cancelListingDto.nftAddress,
-      cancelListingDto.tokenId,
-    );
-    return { txHash };
+  async cancelListing(@Body() dto: CancelListingDto) {
+    return { txHash: await this.blockchainService.cancelListing(dto.tokenId) };
   }
 
   @Get('listing')
-  async getListing(
-    @Query('nftAddress') nftAddress: string,
-    @Query('tokenId') tokenId: string,
-  ) {
-    return this.blockchainService.getListing(nftAddress, tokenId);
+  async getListing(@Query('tokenId') tokenId: string) {
+    return this.blockchainService.getListing(tokenId);
   }
 }

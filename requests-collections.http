@@ -1,0 +1,164 @@
+### U-Mint Collections and Sales API Test Requests
+@baseUrl = http://localhost:8080
+@userId = 68333d5c220a921886614f31
+@collectionId = 6833abcd220a921886614f32
+@nftId = 6833efgh220a921886614f33
+@saleId = 6833ijkl220a921886614f34
+
+### ==================== COLLECTIONS ====================
+
+### Create a new collection
+POST {{baseUrl}}/collections/{{userId}}
+Content-Type: application/json
+
+{
+  "name": "My Awesome Collection",
+  "description": "A collection of unique digital art",
+  "symbol": "MAC",
+  "bannerImage": "https://example.com/banner.png",
+  "profileImage": "https://example.com/profile.png",
+  "royalties": {
+    "address": "0x1234567890123456789012345678901234567890",
+    "percentage": 5
+  },
+  "categories": ["art", "collectibles"],
+  "socialLinks": {
+    "twitter": "https://twitter.com/mycollection",
+    "discord": "https://discord.gg/mycollection"
+  }
+}
+
+### Get all collections
+GET {{baseUrl}}/collections
+
+### Get collection by ID
+GET {{baseUrl}}/collections/{{collectionId}}
+
+### Get collections by creator
+GET {{baseUrl}}/collections/creator/{{userId}}
+
+### Get NFTs in a collection
+GET {{baseUrl}}/collections/{{collectionId}}/nfts
+
+### Update collection
+PATCH {{baseUrl}}/collections/{{collectionId}}/{{userId}}
+Content-Type: application/json
+
+{
+  "name": "My Updated Collection",
+  "description": "An updated collection description"
+}
+
+### Add NFT to collection
+POST {{baseUrl}}/collections/{{collectionId}}/nft/{{nftId}}
+
+### Remove NFT from collection
+DELETE {{baseUrl}}/collections/{{collectionId}}/nft/{{nftId}}
+
+### Update collection stats
+POST {{baseUrl}}/collections/{{collectionId}}/update-stats
+
+### Delete collection (only if empty)
+DELETE {{baseUrl}}/collections/{{collectionId}}/{{userId}}
+
+### ==================== NFTs IN COLLECTIONS ====================
+
+### Create NFT in a collection
+POST {{baseUrl}}/nfts/collection/{{collectionId}}/user/{{userId}}
+Content-Type: application/json
+
+{
+  "tokenId": "12345",
+  "contractAddress": "0xabcdef1234567890abcdef1234567890abcdef12",
+  "name": "Unique Art #1",
+  "description": "A beautiful piece of digital art",
+  "imageUrl": "https://example.com/art1.png",
+  "metadata": {
+    "attributes": [
+      {
+        "trait_type": "Background",
+        "value": "Blue"
+      },
+      {
+        "trait_type": "Style",
+        "value": "Abstract"
+      }
+    ]
+  },
+  "blockchain": "ethereum"
+}
+
+### ==================== SALES ====================
+
+### Create a fixed-price sale
+POST {{baseUrl}}/sales/{{userId}}
+Content-Type: application/json
+
+{
+  "nftId": "{{nftId}}",
+  "collectionId": "{{collectionId}}",
+  "type": "fixed_price",
+  "price": 0.5,
+  "currency": "ETH"
+}
+
+### Create an auction
+POST {{baseUrl}}/sales/{{userId}}
+Content-Type: application/json
+
+{
+  "nftId": "{{nftId}}",
+  "collectionId": "{{collectionId}}",
+  "type": "auction",
+  "price": 0.1,
+  "currency": "ETH",
+  "endTime": "2023-12-31T23:59:59Z"
+}
+
+### Get all active sales
+GET {{baseUrl}}/sales
+
+### Get sale by ID
+GET {{baseUrl}}/sales/{{saleId}}
+
+### Get sales by collection
+GET {{baseUrl}}/sales/collection/{{collectionId}}
+
+### Get sales by seller
+GET {{baseUrl}}/sales/seller/{{userId}}
+
+### Update sale (e.g., change price)
+PATCH {{baseUrl}}/sales/{{saleId}}/{{userId}}
+Content-Type: application/json
+
+{
+  "price": 0.75
+}
+
+### Cancel a sale
+DELETE {{baseUrl}}/sales/{{saleId}}/{{userId}}
+
+### Buy an NFT (fixed price)
+POST {{baseUrl}}/sales/{{saleId}}/buy/{{userId}}
+Content-Type: application/json
+
+{
+  "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+}
+
+### Place a bid (auction)
+POST {{baseUrl}}/sales/bid/{{userId}}
+Content-Type: application/json
+
+{
+  "saleId": "{{saleId}}",
+  "amount": 0.2
+}
+
+### End an auction
+POST {{baseUrl}}/sales/{{saleId}}/end-auction/{{userId}}
+Content-Type: application/json
+
+{
+  "transactionHash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+} 

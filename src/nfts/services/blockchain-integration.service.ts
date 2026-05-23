@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { BlockchainService } from '../../blockchain/blockchain.service';
+import { ConsensusService } from '../../consensus/consensus.service';
+import { TransactionsService } from '../../transactions/transactions.service';
+import { OperationType } from '../../consensus/dto/validate.dto';
 import { NFT, NFTDocument } from '../schemas/nft.schema';
 import { Collection, CollectionDocument } from '../schemas/collection.schema';
 import {
@@ -17,6 +20,8 @@ export class BlockchainIntegrationService {
 
   constructor(
     private readonly blockchainService: BlockchainService,
+    private readonly consensusService: ConsensusService,
+    private readonly transactionsService: TransactionsService,
     @InjectModel(NFT.name) private nftModel: Model<NFTDocument>,
     @InjectModel(Collection.name)
     private collectionModel: Model<CollectionDocument>,
@@ -26,232 +31,241 @@ export class BlockchainIntegrationService {
   async mintNFTOnBlockchain(
     userId: string,
     nftId: string,
-  ): Promise<{ tokenId: string; txHash: string }> {
-    try {
-      // Get NFT from database
-      const nft = await this.nftModel.findById(nftId);
-      if (!nft) {
-        throw new Error(`NFT with ID ${nftId} not found`);
-      }
+  ): Promise<{ tokenId: string; txHash: string; consensus: any }> {
+    const nft = await this.nftModel.findById(nftId);
+    if (!nft) throw new BadRequestException(`NFT ${nftId} not found`);
 
-      // Mint NFT on blockchain
-      const result = await this.blockchainService.mintNFT(nft.userId);
+    // --- CONSENSUS PHASE ---
+    const tokenId = Date.now().toString();
+    const consensusResult = await this.consensusService.requestConsensus({
+      operation: OperationType.MINT,
+      tokenId,
+      nftId,
+      userId,
+    });
 
-      // Update NFT with blockchain tokenId
-      await this.nftModel.findByIdAndUpdate(nftId, {
-        tokenId: result.tokenId,
-        contractAddress: this.blockchainService.getNFTAddress(),
-      });
-
-      return result;
-    } catch (error) {
-      this.logger.error(`Error minting NFT on blockchain: ${error.message}`);
-      throw error;
+    if (!consensusResult.consensus) {
+      throw new BadRequestException(
+        `Consensus rejected mint: ${consensusResult.approvedVotes}/${consensusResult.totalNodes} votes`,
+      );
     }
+
+    // --- BLOCKCHAIN PHASE ---
+    const result = await this.blockchainService.mintNFT(userId);
+
+    await this.nftModel.findByIdAndUpdate(nftId, {
+      tokenId: result.tokenId,
+      contractAddress: this.blockchainService.getPlatformAddress(),
+    });
+
+    // --- AUDIT LOG ---
+    await this.transactionsService.recordTransaction({
+      operation: 'mint',
+      nftId,
+      userId,
+      tokenId: result.tokenId,
+      txHash: result.txHash,
+      consensus: consensusResult,
+    });
+
+    return { ...result, consensus: consensusResult };
   }
 
-  async createCollectionOnBlockchain(collectionId: string): Promise<string> {
-    try {
-      // Get collection from database
-      const collection = await this.collectionModel.findById(collectionId);
-      if (!collection) {
-        throw new Error(`Collection with ID ${collectionId} not found`);
-      }
+  async listNFTForSale(
+    saleId: string,
+    userId: string,
+  ): Promise<{ txHash: string; consensus: any }> {
+    const sale = await this.saleModel.findById(saleId);
+    if (!sale) throw new BadRequestException(`Sale ${saleId} not found`);
 
-      // Set base URI for collection
-      // This would typically point to your API endpoint that serves metadata
-      const baseUri = `${process.env.API_BASE_URL}/api/collections/${collectionId}/metadata/`;
-      const txHash = await this.blockchainService.setBaseURI(baseUri);
+    const nft = await this.nftModel.findById(sale.nftId);
+    if (!nft) throw new BadRequestException(`NFT ${sale.nftId} not found`);
 
-      return txHash;
-    } catch (error) {
-      this.logger.error(
-        `Error creating collection on blockchain: ${error.message}`,
+    // --- CONSENSUS PHASE ---
+    const consensusResult = await this.consensusService.requestConsensus({
+      operation: OperationType.LIST,
+      tokenId: nft.tokenId,
+      nftId: nft._id.toString(),
+      userId,
+      price: sale.price,
+    });
+
+    if (!consensusResult.consensus) {
+      throw new BadRequestException(
+        `Consensus rejected listing: ${consensusResult.approvedVotes}/${consensusResult.totalNodes} votes`,
       );
-      throw error;
     }
+
+    // --- BLOCKCHAIN PHASE ---
+    const txHash = await this.blockchainService.listItem(
+      nft.tokenId,
+      sale.price.toString(),
+    );
+
+    await this.saleModel.findByIdAndUpdate(saleId, { transactionHash: txHash });
+
+    // --- AUDIT LOG ---
+    await this.transactionsService.recordTransaction({
+      operation: 'list',
+      nftId: nft._id.toString(),
+      saleId,
+      userId,
+      price: sale.price,
+      txHash,
+      consensus: consensusResult,
+    });
+
+    return { txHash, consensus: consensusResult };
   }
 
-  async listNFTForSale(saleId: string): Promise<string> {
-    try {
-      // Get sale from database
-      const sale = await this.saleModel.findById(saleId);
-      if (!sale) {
-        throw new Error(`Sale with ID ${saleId} not found`);
-      }
+  async buyNFT(
+    saleId: string,
+    buyerId: string,
+  ): Promise<{ txHash: string; consensus: any }> {
+    const sale = await this.saleModel.findById(saleId);
+    if (!sale) throw new BadRequestException(`Sale ${saleId} not found`);
 
-      // Get NFT details
-      const nft = await this.nftModel.findById(sale.nftId);
-      if (!nft) {
-        throw new Error(`NFT with ID ${sale.nftId} not found`);
-      }
+    const nft = await this.nftModel.findById(sale.nftId);
+    if (!nft) throw new BadRequestException(`NFT ${sale.nftId} not found`);
 
-      // List item on marketplace
-      const txHash = await this.blockchainService.listItem(
-        nft.contractAddress,
-        nft.tokenId,
-        sale.price.toString(),
+    // --- CONSENSUS PHASE ---
+    const consensusResult = await this.consensusService.requestConsensus({
+      operation: OperationType.BUY,
+      tokenId: nft.tokenId,
+      nftId: nft._id.toString(),
+      userId: buyerId,
+      saleId,
+    });
+
+    if (!consensusResult.consensus) {
+      throw new BadRequestException(
+        `Consensus rejected purchase: ${consensusResult.approvedVotes}/${consensusResult.totalNodes} votes`,
       );
-
-      // Update sale with transaction hash
-      await this.saleModel.findByIdAndUpdate(saleId, {
-        transactionHash: txHash,
-      });
-
-      return txHash;
-    } catch (error) {
-      this.logger.error(
-        `Error listing NFT for sale on blockchain: ${error.message}`,
-      );
-      throw error;
     }
+
+    // --- BLOCKCHAIN PHASE ---
+    const txHash = await this.blockchainService.buyItem(
+      nft.tokenId,
+      sale.price.toString(),
+    );
+
+    await this.saleModel.findByIdAndUpdate(saleId, {
+      transactionHash: txHash,
+      status: SaleStatus.SOLD,
+      buyerId,
+      soldAt: new Date(),
+    });
+
+    await this.nftModel.findByIdAndUpdate(sale.nftId, {
+      userId: buyerId,
+      isForSale: false,
+      currentSaleId: null,
+    });
+
+    // --- AUDIT LOG ---
+    await this.transactionsService.recordTransaction({
+      operation: 'buy',
+      nftId: nft._id.toString(),
+      saleId,
+      buyerId,
+      price: sale.price,
+      txHash,
+      consensus: consensusResult,
+    });
+
+    return { txHash, consensus: consensusResult };
   }
 
-  async buyNFT(saleId: string, buyerId: string): Promise<string> {
-    try {
-      // Get sale from database
-      const sale = await this.saleModel.findById(saleId);
-      if (!sale) {
-        throw new Error(`Sale with ID ${saleId} not found`);
-      }
+  async cancelSale(
+    saleId: string,
+    userId?: string,
+  ): Promise<{ txHash: string; consensus: any }> {
+    const sale = await this.saleModel.findById(saleId);
+    if (!sale) throw new BadRequestException(`Sale ${saleId} not found`);
 
-      // Get NFT details
-      const nft = await this.nftModel.findById(sale.nftId);
-      if (!nft) {
-        throw new Error(`NFT with ID ${sale.nftId} not found`);
-      }
+    const nft = await this.nftModel.findById(sale.nftId);
+    if (!nft) throw new BadRequestException(`NFT ${sale.nftId} not found`);
 
-      // Buy item from marketplace
-      const txHash = await this.blockchainService.buyItem(
-        nft.contractAddress,
-        nft.tokenId,
-        sale.price.toString(),
+    // --- CONSENSUS PHASE ---
+    const consensusResult = await this.consensusService.requestConsensus({
+      operation: OperationType.CANCEL,
+      tokenId: nft.tokenId,
+      nftId: nft._id.toString(),
+      userId: userId || sale.sellerId,
+      saleId,
+    });
+
+    if (!consensusResult.consensus) {
+      throw new BadRequestException(
+        `Consensus rejected cancel: ${consensusResult.approvedVotes}/${consensusResult.totalNodes} votes`,
       );
-
-      // Update sale with transaction hash and status
-      await this.saleModel.findByIdAndUpdate(saleId, {
-        transactionHash: txHash,
-        status: SaleStatus.SOLD,
-        buyerId,
-        soldAt: new Date(),
-      });
-
-      // Update NFT ownership
-      await this.nftModel.findByIdAndUpdate(sale.nftId, {
-        userId: buyerId,
-        isForSale: false,
-        currentSaleId: null,
-      });
-
-      return txHash;
-    } catch (error) {
-      this.logger.error(`Error buying NFT on blockchain: ${error.message}`);
-      throw error;
     }
-  }
 
-  async cancelSale(saleId: string): Promise<string> {
-    try {
-      // Get sale from database
-      const sale = await this.saleModel.findById(saleId);
-      if (!sale) {
-        throw new Error(`Sale with ID ${saleId} not found`);
-      }
+    // --- BLOCKCHAIN PHASE ---
+    const txHash = await this.blockchainService.cancelListing(nft.tokenId);
 
-      // Get NFT details
-      const nft = await this.nftModel.findById(sale.nftId);
-      if (!nft) {
-        throw new Error(`NFT with ID ${sale.nftId} not found`);
-      }
+    await this.saleModel.findByIdAndUpdate(saleId, {
+      transactionHash: txHash,
+      status: SaleStatus.CANCELLED,
+    });
 
-      // Cancel listing on marketplace
-      const txHash = await this.blockchainService.cancelListing(
-        nft.contractAddress,
-        nft.tokenId,
-      );
+    await this.nftModel.findByIdAndUpdate(sale.nftId, {
+      isForSale: false,
+      currentSaleId: null,
+    });
 
-      // Update sale with transaction hash and status
-      await this.saleModel.findByIdAndUpdate(saleId, {
-        transactionHash: txHash,
-        status: SaleStatus.CANCELLED,
-      });
+    // --- AUDIT LOG ---
+    await this.transactionsService.recordTransaction({
+      operation: 'cancel',
+      nftId: nft._id.toString(),
+      saleId,
+      userId: userId || sale.sellerId,
+      txHash,
+      consensus: consensusResult,
+    });
 
-      // Update NFT
-      await this.nftModel.findByIdAndUpdate(sale.nftId, {
-        isForSale: false,
-        currentSaleId: null,
-      });
-
-      return txHash;
-    } catch (error) {
-      this.logger.error(
-        `Error cancelling sale on blockchain: ${error.message}`,
-      );
-      throw error;
-    }
+    return { txHash, consensus: consensusResult };
   }
 
   async syncNFTWithBlockchain(nftId: string): Promise<void> {
-    try {
-      // Get NFT from database
-      const nft = await this.nftModel.findById(nftId);
-      if (!nft || !nft.tokenId || !nft.contractAddress) {
-        throw new Error(
-          `NFT with ID ${nftId} not found or missing blockchain data`,
-        );
-      }
-
-      // Get owner from blockchain
-      const owner = await this.blockchainService.getOwnerOf(nft.tokenId);
-
-      // Check if NFT is listed for sale
-      const listing = await this.blockchainService.getListing(
-        nft.contractAddress,
-        nft.tokenId,
+    const nft = await this.nftModel.findById(nftId);
+    if (!nft || !nft.tokenId) {
+      throw new BadRequestException(
+        `NFT ${nftId} not found or missing tokenId`,
       );
+    }
 
-      // Update NFT based on blockchain data
-      const updates: any = {};
+    const listing = await this.blockchainService.getListing(nft.tokenId);
+    const updates: any = {};
 
-      // If there's a valid listing
-      if (
-        listing &&
-        listing.seller !== '0x0000000000000000000000000000000000000000'
-      ) {
-        updates.isForSale = true;
-        updates.price = parseFloat(listing.price);
+    if (listing && listing.isActive) {
+      updates.isForSale = true;
+      updates.price = parseFloat(listing.price);
 
-        // Check if we need to create a sale in our database
-        const existingSale = await this.saleModel.findOne({
+      const existingSale = await this.saleModel.findOne({
+        nftId: nft._id,
+        status: SaleStatus.ACTIVE,
+      });
+
+      if (!existingSale) {
+        const newSale = new this.saleModel({
           nftId: nft._id,
+          collectionId: nft.collectionId,
+          sellerId: nft.userId,
+          type: SaleType.FIXED_PRICE,
+          price: parseFloat(listing.price),
+          currency: 'ETH',
           status: SaleStatus.ACTIVE,
         });
 
-        if (!existingSale) {
-          // Create new sale record
-          const newSale = new this.saleModel({
-            nftId: nft._id,
-            collectionId: nft.collectionId,
-            sellerId: nft.userId,
-            type: SaleType.FIXED_PRICE,
-            price: parseFloat(listing.price),
-            currency: 'ETH',
-            status: SaleStatus.ACTIVE,
-          });
-
-          const savedSale = await newSale.save();
-          updates.currentSaleId = savedSale._id;
-        }
-      } else {
-        updates.isForSale = false;
-        updates.currentSaleId = null;
+        const savedSale = await newSale.save();
+        updates.currentSaleId = savedSale._id;
       }
-
-      // Update NFT
-      await this.nftModel.findByIdAndUpdate(nftId, updates);
-    } catch (error) {
-      this.logger.error(`Error syncing NFT with blockchain: ${error.message}`);
-      throw error;
+    } else {
+      updates.isForSale = false;
+      updates.currentSaleId = null;
     }
+
+    await this.nftModel.findByIdAndUpdate(nftId, updates);
   }
 }

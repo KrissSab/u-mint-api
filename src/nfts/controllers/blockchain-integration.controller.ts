@@ -7,31 +7,22 @@ export class BlockchainIntegrationController {
     private readonly blockchainIntegrationService: BlockchainIntegrationService,
   ) {}
 
-  @Post('nfts/blockchain/mint/:nftId')
+  @Post('nfts/blockchain/mint/:nftId/:userId')
   @HttpCode(HttpStatus.OK)
-  async mintNFTOnBlockchain(@Param('nftId') nftId: string) {
-    return this.blockchainIntegrationService.mintNFTOnBlockchain('', nftId);
-  }
-
-  @Post('collections/blockchain/create/:collectionId')
-  @HttpCode(HttpStatus.OK)
-  async createCollectionOnBlockchain(
-    @Param('collectionId') collectionId: string,
+  async mintNFTOnBlockchain(
+    @Param('nftId') nftId: string,
+    @Param('userId') userId: string,
   ) {
-    return {
-      txHash:
-        await this.blockchainIntegrationService.createCollectionOnBlockchain(
-          collectionId,
-        ),
-    };
+    return this.blockchainIntegrationService.mintNFTOnBlockchain(userId, nftId);
   }
 
-  @Post('sales/blockchain/list/:saleId')
+  @Post('sales/blockchain/list/:saleId/:userId')
   @HttpCode(HttpStatus.OK)
-  async listNFTForSale(@Param('saleId') saleId: string) {
-    return {
-      txHash: await this.blockchainIntegrationService.listNFTForSale(saleId),
-    };
+  async listNFTForSale(
+    @Param('saleId') saleId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.blockchainIntegrationService.listNFTForSale(saleId, userId);
   }
 
   @Post('sales/blockchain/buy/:saleId/:buyerId')
@@ -40,17 +31,16 @@ export class BlockchainIntegrationController {
     @Param('saleId') saleId: string,
     @Param('buyerId') buyerId: string,
   ) {
-    return {
-      txHash: await this.blockchainIntegrationService.buyNFT(saleId, buyerId),
-    };
+    return this.blockchainIntegrationService.buyNFT(saleId, buyerId);
   }
 
-  @Post('sales/blockchain/cancel/:saleId')
+  @Post('sales/blockchain/cancel/:saleId/:userId')
   @HttpCode(HttpStatus.OK)
-  async cancelSale(@Param('saleId') saleId: string) {
-    return {
-      txHash: await this.blockchainIntegrationService.cancelSale(saleId),
-    };
+  async cancelSale(
+    @Param('saleId') saleId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.blockchainIntegrationService.cancelSale(saleId, userId);
   }
 
   @Post('nfts/blockchain/sync/:nftId')

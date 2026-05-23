@@ -1,0 +1,138 @@
+### U-Mint API Test Requests
+@baseUrl = http://localhost:8080
+@userEmail = wibayaf116@pricegh.com
+@userId = 68333d5c220a921886614f31
+@walletAddress = 0x1234567890123456789012345678901234567890
+@nftTokenId = 12345
+@nftContractAddress = 0xabcdef1234567890abcdef1234567890abcdef12
+
+### ==================== USERS MODULE ====================
+
+### Register a user with email verification
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "{{userEmail}}",
+  "password": "StrongP@ssw0rd123"
+}
+
+### Verify email with code (replace CODE with the actual code received)
+POST {{baseUrl}}/users/verify-email
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}",
+  "code": "4722"
+}
+
+### Complete registration after verification
+POST {{baseUrl}}/users/complete-registration
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "{{userEmail}}",
+  "password": "StrongP@ssw0rd123"
+}
+
+### Resend verification code
+POST {{baseUrl}}/users/resend-verification
+Content-Type: application/json
+
+{
+  "email": "{{userEmail}}"
+}
+
+### Create user with wallet (direct registration)
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+  "username": "cryptouser",
+  "email": "crypto@example.com",
+  "password": "StrongP@ssw0rd123",
+  "wallet": {
+    "type": "ethereum",
+    "address": "{{walletAddress}}"
+  }
+}
+
+### Get all users
+GET {{baseUrl}}/users
+
+### Get user by ID (replace with actual ID)
+GET {{baseUrl}}/users/{{userId}}
+
+### Get user by username
+GET {{baseUrl}}/users/username/testuser
+
+### Update user
+PATCH {{baseUrl}}/users/{{userId}}
+Content-Type: application/json
+
+{
+  "username": "updateduser"
+}
+
+### Delete user
+DELETE {{baseUrl}}/users/{{userId}}
+
+### ==================== WALLETS MODULE ====================
+
+### Add wallet to user
+POST {{baseUrl}}/wallets
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "type": "ethereum",
+  "address": "{{walletAddress}}"
+}
+
+### Get user's wallets
+GET {{baseUrl}}/wallets/user/{{userId}}
+
+### Remove wallet from user
+DELETE {{baseUrl}}/wallets
+Content-Type: application/json
+
+{
+  "userId": "{{userId}}",
+  "address": "{{walletAddress}}"
+}
+
+### ==================== NFTs MODULE ====================
+
+### Add NFT to user
+POST {{baseUrl}}/nfts/user/{{userId}}
+Content-Type: application/json
+
+{
+  "tokenId": "{{nftTokenId}}",
+  "contractAddress": "{{nftContractAddress}}",
+  "name": "Cool NFT",
+  "description": "This is a test NFT",
+  "imageUrl": "https://example.com/nft.png",
+  "metadata": {
+    "attributes": [
+      {
+        "trait_type": "Background",
+        "value": "Blue"
+      },
+      {
+        "trait_type": "Eyes",
+        "value": "Green"
+      }
+    ],
+    "external_url": "https://example.com/nft/12345"
+  },
+  "blockchain": "ethereum"
+}
+
+### Get user's NFTs
+GET {{baseUrl}}/nfts/user/{{userId}}
+
+### Remove NFT from user
+DELETE {{baseUrl}}/nfts/user/{{userId}}/{{nftTokenId}}/{{nftContractAddress}}

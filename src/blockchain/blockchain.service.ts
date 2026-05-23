@@ -2,38 +2,27 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 
-// ABI imports
-const NFT_MARKETPLACE_ABI = [
-  // Events
-  'event ItemListed(address indexed seller, address indexed nftAddress, uint256 indexed tokenId, uint256 price)',
-  'event ItemSold(address seller, address indexed buyer, address indexed nftAddress, uint256 indexed tokenId, uint256 price)',
-  'event ItemCancelled(address indexed seller, address indexed nftAddress, uint256 indexed tokenId)',
+const UMINT_PLATFORM_ABI = [
+  'event TokenMinted(uint256 indexed tokenId, address indexed author)',
+  'event TokenListed(uint256 indexed tokenId, address indexed owner, uint256 price)',
+  'event TokenSold(uint256 indexed tokenId, address indexed seller, address indexed buyer, uint256 price)',
+  'event ListingCancelled(uint256 indexed tokenId, address indexed owner)',
 
-  // Functions
-  'function listItem(address nftAddress, uint256 tokenId, uint256 price) external',
-  'function buyItem(address nftAddress, uint256 tokenId) external payable',
-  'function cancelListing(address nftAddress, uint256 tokenId) external',
-  'function listings(address nftAddress, uint256 tokenId) external view returns (address seller, uint256 price)',
-];
-
-const UMINT_NFT_ABI = [
-  // Events
-  'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)',
-  'event BaseURIUpdated(string newBaseURI)',
-
-  // Functions
-  'function safeMint(address to) public',
-  'function setBaseURI(string calldata newBaseURI) public',
-  'function tokenURI(uint256 tokenId) external view returns (string memory)',
-  'function ownerOf(uint256 tokenId) external view returns (address)',
+  'function getNonce(address account) external view returns (uint256)',
+  'function mintToken(uint256 tokenId, uint256 nonce) external',
+  'function listToken(uint256 tokenId, uint256 price, uint256 nonce) external',
+  'function buyToken(uint256 tokenId, uint256 nonce) external payable',
+  'function cancelListing(uint256 tokenId, uint256 nonce) external',
+  'function tokens(uint256 tokenId) external view returns (address author, address owner)',
+  'function listings(uint256 tokenId) external view returns (uint256 price, address owner, bool isActive)',
+  'function ROYALTY_PERCENT() external view returns (uint256)',
 ];
 
 @Injectable()
 export class BlockchainService {
   private readonly logger = new Logger(BlockchainService.name);
   private provider: ethers.JsonRpcProvider;
-  private marketplaceContract: ethers.Contract | null = null;
-  private nftContract: ethers.Contract | null = null;
+  private platformContract: ethers.Contract | null = null;
   private signer: ethers.Wallet | null = null;
 
   constructor(private configService: ConfigService) {
@@ -42,50 +31,27 @@ export class BlockchainService {
 
   private async initializeBlockchain() {
     try {
-      // Initialize provider (for testnet)
       const rpcUrl = this.configService.get<string>('ETHEREUM_RPC_URL');
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
 
-      // Initialize contracts
-      const marketplaceAddress = this.configService.get<string>(
-        'MARKETPLACE_CONTRACT_ADDRESS',
-      );
-      const nftAddress = this.configService.get<string>('NFT_CONTRACT_ADDRESS');
+      const platformAddress = this.configService.get<string>('PLATFORM_CONTRACT_ADDRESS');
 
-      if (marketplaceAddress) {
-        this.marketplaceContract = new ethers.Contract(
-          marketplaceAddress,
-          NFT_MARKETPLACE_ABI,
+      if (platformAddress) {
+        this.platformContract = new ethers.Contract(
+          platformAddress,
+          UMINT_PLATFORM_ABI,
           this.provider,
         );
       }
 
-      if (nftAddress) {
-        this.nftContract = new ethers.Contract(
-          nftAddress,
-          UMINT_NFT_ABI,
-          this.provider,
-        );
-      }
-
-      // Initialize signer if private key is provided
       const privateKey = this.configService.get<string>('ETHEREUM_PRIVATE_KEY');
       if (privateKey) {
         this.signer = new ethers.Wallet(privateKey, this.provider);
 
-        // Connect contracts to signer
-        if (this.marketplaceContract) {
-          this.marketplaceContract = new ethers.Contract(
-            marketplaceAddress!,
-            NFT_MARKETPLACE_ABI,
-            this.signer,
-          );
-        }
-
-        if (this.nftContract) {
-          this.nftContract = new ethers.Contract(
-            nftAddress!,
-            UMINT_NFT_ABI,
+        if (this.platformContract && platformAddress) {
+          this.platformContract = new ethers.Contract(
+            platformAddress,
+            UMINT_PLATFORM_ABI,
             this.signer,
           );
         }
@@ -93,41 +59,30 @@ export class BlockchainService {
 
       this.logger.log('Blockchain service initialized successfully');
     } catch (error) {
-      this.logger.error(
-        `Failed to initialize blockchain service: ${error.message}`,
-      );
+      this.logger.error(`Failed to initialize blockchain service: ${error.message}`);
     }
   }
 
-  // NFT Contract Methods
-  async mintNFT(
-    toAddress: string,
-  ): Promise<{ tokenId: string; txHash: string }> {
+  async getNonce(address: string): Promise<number> {
+    if (!this.platformContract) throw new Error('Platform contract not initialized');
+    const nonce = await this.platformContract.getNonce(address);
+    return Number(nonce);
+  }
+
+  async mintNFT(_toAddress: string): Promise<{ tokenId: string; txHash: string }> {
     try {
-      if (!this.signer || !this.nftContract) {
-        throw new Error('Signer or NFT contract not initialized');
+      if (!this.signer || !this.platformContract) {
+        throw new Error('Signer or platform contract not initialized');
       }
 
-      const tx = await this.nftContract.safeMint(toAddress);
+      const tokenId = Date.now();
+      const nonce = await this.getNonce(this.signer.address);
+
+      const tx = await this.platformContract.mintToken(tokenId, nonce);
       const receipt = await tx.wait();
 
-      // Find the Transfer event to get the tokenId
-      const transferEvent = receipt.logs
-        .map(log => {
-          try {
-            return this.nftContract!.interface.parseLog(log);
-          } catch (e) {
-            return null;
-          }
-        })
-        .find(event => event && event.name === 'Transfer');
-
-      const tokenId = transferEvent
-        ? transferEvent.args.tokenId.toString()
-        : null;
-
       return {
-        tokenId,
+        tokenId: tokenId.toString(),
         txHash: receipt.hash,
       };
     } catch (error) {
@@ -136,61 +91,19 @@ export class BlockchainService {
     }
   }
 
-  async setBaseURI(newBaseURI: string): Promise<string> {
+  async listItem(tokenId: string, price: string): Promise<string> {
     try {
-      if (!this.signer || !this.nftContract) {
-        throw new Error('Signer or NFT contract not initialized');
-      }
-
-      const tx = await this.nftContract.setBaseURI(newBaseURI);
-      const receipt = await tx.wait();
-      return receipt.hash;
-    } catch (error) {
-      this.logger.error(`Error setting base URI: ${error.message}`);
-      throw error;
-    }
-  }
-
-  async getTokenURI(tokenId: string): Promise<string> {
-    try {
-      if (!this.nftContract) {
-        throw new Error('NFT contract not initialized');
-      }
-      return await this.nftContract.tokenURI(tokenId);
-    } catch (error) {
-      this.logger.error(`Error getting token URI: ${error.message}`);
-      throw error;
-    }
-  }
-
-  async getOwnerOf(tokenId: string): Promise<string> {
-    try {
-      if (!this.nftContract) {
-        throw new Error('NFT contract not initialized');
-      }
-      return await this.nftContract.ownerOf(tokenId);
-    } catch (error) {
-      this.logger.error(`Error getting owner: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // Marketplace Contract Methods
-  async listItem(
-    nftAddress: string,
-    tokenId: string,
-    price: string,
-  ): Promise<string> {
-    try {
-      if (!this.signer || !this.marketplaceContract) {
-        throw new Error('Signer or marketplace contract not initialized');
+      if (!this.signer || !this.platformContract) {
+        throw new Error('Signer or platform contract not initialized');
       }
 
       const priceInWei = ethers.parseEther(price);
-      const tx = await this.marketplaceContract.listItem(
-        nftAddress,
-        tokenId,
+      const nonce = await this.getNonce(this.signer.address);
+
+      const tx = await this.platformContract.listToken(
+        BigInt(tokenId),
         priceInWei,
+        nonce,
       );
       const receipt = await tx.wait();
       return receipt.hash;
@@ -200,20 +113,20 @@ export class BlockchainService {
     }
   }
 
-  async buyItem(
-    nftAddress: string,
-    tokenId: string,
-    price: string,
-  ): Promise<string> {
+  async buyItem(tokenId: string, price: string): Promise<string> {
     try {
-      if (!this.signer || !this.marketplaceContract) {
-        throw new Error('Signer or marketplace contract not initialized');
+      if (!this.signer || !this.platformContract) {
+        throw new Error('Signer or platform contract not initialized');
       }
 
       const priceInWei = ethers.parseEther(price);
-      const tx = await this.marketplaceContract.buyItem(nftAddress, tokenId, {
-        value: priceInWei,
-      });
+      const nonce = await this.getNonce(this.signer.address);
+
+      const tx = await this.platformContract.buyToken(
+        BigInt(tokenId),
+        nonce,
+        { value: priceInWei },
+      );
       const receipt = await tx.wait();
       return receipt.hash;
     } catch (error) {
@@ -222,15 +135,17 @@ export class BlockchainService {
     }
   }
 
-  async cancelListing(nftAddress: string, tokenId: string): Promise<string> {
+  async cancelListing(tokenId: string): Promise<string> {
     try {
-      if (!this.signer || !this.marketplaceContract) {
-        throw new Error('Signer or marketplace contract not initialized');
+      if (!this.signer || !this.platformContract) {
+        throw new Error('Signer or platform contract not initialized');
       }
 
-      const tx = await this.marketplaceContract.cancelListing(
-        nftAddress,
-        tokenId,
+      const nonce = await this.getNonce(this.signer.address);
+
+      const tx = await this.platformContract.cancelListing(
+        BigInt(tokenId),
+        nonce,
       );
       const receipt = await tx.wait();
       return receipt.hash;
@@ -240,22 +155,25 @@ export class BlockchainService {
     }
   }
 
-  async getListing(
-    nftAddress: string,
-    tokenId: string,
-  ): Promise<{ seller: string; price: string }> {
+  async getOwnerOf(tokenId: string): Promise<string> {
     try {
-      if (!this.marketplaceContract) {
-        throw new Error('Marketplace contract not initialized');
-      }
+      if (!this.platformContract) throw new Error('Platform contract not initialized');
+      const token = await this.platformContract.tokens(BigInt(tokenId));
+      return token.owner;
+    } catch (error) {
+      this.logger.error(`Error getting owner: ${error.message}`);
+      throw error;
+    }
+  }
 
-      const listing = await this.marketplaceContract.listings(
-        nftAddress,
-        tokenId,
-      );
+  async getListing(tokenId: string): Promise<{ price: string; owner: string; isActive: boolean }> {
+    try {
+      if (!this.platformContract) throw new Error('Platform contract not initialized');
+      const listing = await this.platformContract.listings(BigInt(tokenId));
       return {
-        seller: listing.seller,
         price: ethers.formatEther(listing.price),
+        owner: listing.owner,
+        isActive: listing.isActive,
       };
     } catch (error) {
       this.logger.error(`Error getting listing: ${error.message}`);
@@ -263,18 +181,17 @@ export class BlockchainService {
     }
   }
 
-  // Helper methods
-  getMarketplaceAddress(): string {
-    if (!this.marketplaceContract) {
-      return '';
-    }
-    return this.marketplaceContract.target.toString();
+  getPlatformAddress(): string {
+    if (!this.platformContract) return '';
+    return this.platformContract.target.toString();
   }
 
+  // Keep backward-compat aliases used by BlockchainIntegrationService
   getNFTAddress(): string {
-    if (!this.nftContract) {
-      return '';
-    }
-    return this.nftContract.target.toString();
+    return this.getPlatformAddress();
+  }
+
+  getMarketplaceAddress(): string {
+    return this.getPlatformAddress();
   }
 }
